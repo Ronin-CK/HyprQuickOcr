@@ -21,8 +21,6 @@ It allows you to "freeze" your screen, select a region with a smooth animated ov
     git clone [https://github.com/YOUR_USERNAME/HyprQuickOcr.git](https://github.com/YOUR_USERNAME/HyprQuickOcr.git) ~/.config/quickshell/HyprQuickOcr
     ```
 
-2.  **Verify Files:**
-    Ensure `Ocr.qml` and `dimming.frag.qsb` are in the folder.
 
 ## ⚙️ Configuration (Hyprland)
 Add this to `hyprland.conf`:
