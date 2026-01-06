@@ -1,6 +1,6 @@
-# HyprQuickOcr
+# HyprQuickSnip
 
-HyprQuickOcr is a lightweight, minimal OCR utility for Hyprland, built with Quickshell.
+HyprQuickSnip is a lightweight, minimal OCR utility for Hyprland, built with Quickshell.
 
 Modern, minimal UI designed to feel native on Hyprland
 
@@ -47,7 +47,7 @@ yay -S quickshell-git
 2.  **Clone the repository:** 
    ```bash
 mkdir -p ~/.config/quickshell 
-   git clone https://github.com/Ronin-CK/HyprQuickOcr.git ~/.config/quickshell/HyprQuickOcr
+   git clone https://github.com/Ronin-CK/HyprQuickSnip.git ~/.config/quickshell/HyprQuickSnip
 ```
 
 
@@ -56,4 +56,4 @@ mkdir -p ~/.config/quickshell
 ## ⚙️ Configuration (Hyprland)
 Add this to `hyprland.conf`:
 ```ini
-bindr = SUPER SHIFT, T, exec, quickshell -p ~/.config/quickshell/HyprQuickOcr/Ocr.qml
+bindr = SUPER SHIFT, T, exec, quickshell -p ~/.config/quickshell/HyprQuickSnip/Ocr.qml
