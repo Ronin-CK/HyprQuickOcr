@@ -1,93 +1,118 @@
+import Qt5Compat.GraphicalEffects
 import QtQuick
 import QtQuick.Controls
 import Quickshell
-import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Wayland
 
 PanelWindow {
     id: root
 
-    // --- Configuration ---
+    // --- Inputs & Monitor ---
     property var targetScreen: Quickshell.screens[0]
-    property var hyprlandMonitor: Hyprland.focusedMonitor
-
-    property string fullScreenshotPath
-    property string cropPath
-
-    // Defaults to "ocr" (Text Copy)
+    property var monitor: Hyprland.focusedMonitor
+    property var modes: ["ocr", "lens"]
     property string currentMode: "ocr"
+    // --- Temporary Files ---
+    // We clean these up after usage or on escape
+    property string fullScreenshot: ""
+    property string cropJpg: ""
+    property string lensHtml: ""
+
+    function executeAction() {
+        const scale = root.monitor.scale;
+        const x = Math.round(selector.selectionX * scale);
+        const y = Math.round(selector.selectionY * scale);
+        const w = Math.round(selector.selectionWidth * scale);
+        const h = Math.round(selector.selectionHeight * scale);
+        // Ignore accidental clicks or tiny drags
+        if (w < 10 || h < 10)
+            return ;
+
+        root.visible = false;
+        let cmd = "";
+        if (root.currentMode === "ocr") {
+            // This pipeline is a bit of a beast:
+            // 1. Crop the region
+            // 2. Tesseract for OCR
+            // 3. AWK to normalize whitespace (Tesseract can be weird with line breaks)
+            // 4. SED for final cleanup before clipboard
+            const ocrPipeline = [`magick "${root.fullScreenshot}" -crop ${w}x${h}+${x}+${y} -`, `tesseract - - -l eng`, `awk 'BEGIN{RS=""; FS="\\n"; ORS="\\n\\n"} {for(i=1;i<=NF;i++){printf "%s",$i; if(i<NF)printf " "} printf "\\n"}'`, `sed 's/  */ /g; s/[[:space:]]*$//'`, `wl-copy`].join(" | ");
+            cmd = `${ocrPipeline} && notify-send 'OCR Complete' 'Text copied to clipboard'`;
+        } else {
+            // Google Lens doesn't have a simple "upload a file" API anymore.
+            // We have to fake a multipart form submisson via a local HTML file.
+            // We use a base64'd JPEG to avoid some browser security/path issues.
+            const buildHtml = [`echo '<html><body style="margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#111;color:#fff;font-family:system-ui"><p>Searching with Google Lens…</p><form id="f" method="POST" enctype="multipart/form-data" action="https://lens.google.com/v3/upload"></form><script>'`, `echo "var b=atob('$B64');"`, `echo 'var a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);var d=new DataTransfer();d.items.add(new File([a],"i.jpg",{type:"image/jpeg"}));var inp=document.createElement("input");inp.type="file";inp.name="encoded_image";inp.files=d.files;document.getElementById("f").appendChild(inp);document.getElementById("f").submit();'`, `echo '</script></body></html>'`].join(" ; ");
+            cmd = [`magick "${root.fullScreenshot}" -crop ${w}x${h}+${x}+${y} -resize '1000x1000>' -strip -quality 85 "${root.cropJpg}"`, `B64=$(base64 -w0 "${root.cropJpg}")`, `{ ${buildHtml} ; } > "${root.lensHtml}"`, `xdg-open "${root.lensHtml}"`].join(" && ");
+        }
+        // Cleanup: Wait a few seconds for the browser to catch up before nuking the HTML
+        cmd += ` ; (sleep 3 && rm -f "${root.fullScreenshot}" "${root.cropJpg}" "${root.lensHtml}") &`;
+        proc.command = ["sh", "-c", cmd];
+        proc.running = true;
+    }
 
     screen: targetScreen
-    anchors { left: true; right: true; top: true; bottom: true }
-
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
-
     visible: false
+    Component.onCompleted: {
+        const ts = Date.now();
+        root.fullScreenshot = Quickshell.cachePath(`snip-full-${ts}.png`);
+        root.cropJpg = Quickshell.cachePath(`snip-crop-${ts}.jpg`);
+        root.lensHtml = Quickshell.cachePath(`snip-lens-${ts}.html`);
+        // We capture BEFORE showing the window to avoid catching ourselves
+        grimProc.running = true;
+    }
 
-    // --- 1. Background Freeze ---
+    anchors {
+        left: true
+        right: true
+        top: true
+        bottom: true
+    }
+
+    // Freeze the screen so it doesn't move while selecting
     ScreencopyView {
+        id: screenCopy
+
         captureSource: root.targetScreen
         anchors.fill: parent
         z: -1
     }
 
-    Component.onCompleted: {
-        const timestamp = Date.now();
-        root.fullScreenshotPath = Quickshell.cachePath("snip-full-" + timestamp + ".png");
-        root.cropPath = Quickshell.cachePath("snip-crop-" + timestamp + ".png");
+    // Capture the desktop state
+    Process {
+        id: grimProc
 
-        Quickshell.execDetached(["grim", root.fullScreenshotPath]);
-        showTimer.start();
-    }
-
-    Timer {
-        id: showTimer
-        interval: 50
-        repeat: false
-        onTriggered: root.visible = true
-    }
-
-    // --- 2. Action Logic ---
-    Process { id: proc; onExited: Qt.quit() }
-
-    function executeAction() {
-        // Calculate Scale
-        const scale = root.hyprlandMonitor.scale;
-        const x = Math.round((selector.selectionX + root.hyprlandMonitor.x) * scale);
-        const y = Math.round((selector.selectionY + root.hyprlandMonitor.y) * scale);
-        const w = Math.round(selector.selectionWidth * scale);
-        const h = Math.round(selector.selectionHeight * scale);
-
-        // Ignore tiny accidental drags
-        if (w < 10 || h < 10) return;
-
-        root.visible = false; // Vanish immediately
-
-        var cmd = "";
-
-        if (root.currentMode === "ocr") {
-            // OCR Pipeline
-            cmd = `magick "${root.fullScreenshotPath}" -crop ${w}x${h}+${x}+${y} - | tesseract - - -l eng | wl-copy && notify-send 'OCR Complete' 'Text copied to clipboard'`;
-        } else {
-            // Lens Pipeline
-            cmd = `magick "${root.fullScreenshotPath}" -crop ${w}x${h}+${x}+${y} "${root.cropPath}" && imageLink=$(curl -sF files[]=@"${root.cropPath}" 'https://uguu.se/upload' | jq -r '.files[0].url') && xdg-open "https://lens.google.com/uploadbyurl?url=\${imageLink}"`;
+        command: ["grim", "-o", root.monitor.name, root.fullScreenshot]
+        onExited: (code) => {
+            if (code === 0) {
+                root.visible = true;
+            } else {
+                console.error("grim failed to capture screen:", code);
+                Qt.quit();
+            }
         }
-
-        // Cleanup
-        cmd += ` && rm "${root.fullScreenshotPath}" "${root.cropPath}"`;
-
-        proc.command = ["sh", "-c", cmd];
-        proc.running = true;
     }
 
-    // --- 3. Visual Selector Layer ---
+    // The heavy lifter for actions
+    Process {
+        id: proc
+
+        onExited: (code) => {
+            if (code !== 0)
+                console.error("Action shell script failed:", code);
+
+            Qt.quit();
+        }
+    }
+
+    // --- 4. Visual Selector Layer ---
     Item {
         id: selector
-        anchors.fill: parent
-        z: 1
 
         property real selectionX: 0
         property real selectionY: 0
@@ -97,7 +122,8 @@ PanelWindow {
         property real mouseX: 0
         property real mouseY: 0
 
-        // Force redraw when geometry changes
+        anchors.fill: parent
+        z: 1
         onSelectionXChanged: guides.requestPaint()
         onSelectionYChanged: guides.requestPaint()
         onSelectionWidthChanged: guides.requestPaint()
@@ -105,20 +131,20 @@ PanelWindow {
         onMouseXChanged: guides.requestPaint()
         onMouseYChanged: guides.requestPaint()
 
-        // Dimming Background
         ShaderEffect {
-            anchors.fill: parent
             property vector4d selectionRect: Qt.vector4d(selector.selectionX, selector.selectionY, selector.selectionWidth, selector.selectionHeight)
             property real dimOpacity: 0.5
             property vector2d screenSize: Qt.vector2d(selector.width, selector.height)
-            property real borderRadius: 4.0
-            property real outlineThickness: 1.0
+            property real borderRadius: 4
+            property real outlineThickness: 1
+
+            anchors.fill: parent
             fragmentShader: Qt.resolvedUrl("dimming.frag.qsb")
         }
 
-        // Crosshairs / Box
         Canvas {
             id: guides
+
             anchors.fill: parent
             onPaint: {
                 var ctx = getContext("2d");
@@ -127,13 +153,12 @@ PanelWindow {
                 ctx.lineWidth = 1;
                 ctx.setLineDash([4, 4]);
                 ctx.beginPath();
-
                 if (!mouseArea.pressed) {
-                    // Hover Crosshair
-                    ctx.moveTo(selector.mouseX, 0); ctx.lineTo(selector.mouseX, height);
-                    ctx.moveTo(0, selector.mouseY); ctx.lineTo(width, selector.mouseY);
+                    ctx.moveTo(selector.mouseX, 0);
+                    ctx.lineTo(selector.mouseX, height);
+                    ctx.moveTo(0, selector.mouseY);
+                    ctx.lineTo(width, selector.mouseY);
                 } else {
-                    // Selection Box
                     ctx.rect(selector.selectionX, selector.selectionY, selector.selectionWidth, selector.selectionHeight);
                 }
                 ctx.stroke();
@@ -142,49 +167,44 @@ PanelWindow {
 
         MouseArea {
             id: mouseArea
+
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.CrossCursor
-
             onPressed: (mouse) => {
-                selector.startPos = Qt.point(mouse.x, mouse.y)
-                selector.selectionX = mouse.x
-                selector.selectionY = mouse.y
-                selector.selectionWidth = 0
-                selector.selectionHeight = 0
+                selector.startPos = Qt.point(mouse.x, mouse.y);
+                selector.selectionX = mouse.x;
+                selector.selectionY = mouse.y;
+                selector.selectionWidth = 0;
+                selector.selectionHeight = 0;
             }
-
             onPositionChanged: (mouse) => {
-                selector.mouseX = mouse.x
-                selector.mouseY = mouse.y
-
+                selector.mouseX = mouse.x;
+                selector.mouseY = mouse.y;
                 if (pressed) {
-                    var x = Math.min(selector.startPos.x, mouse.x)
-                    var y = Math.min(selector.startPos.y, mouse.y)
-                    var w = Math.abs(mouse.x - selector.startPos.x)
-                    var h = Math.abs(mouse.y - selector.startPos.y)
-
-                    selector.selectionX = x
-                    selector.selectionY = y
-                    selector.selectionWidth = w
-                    selector.selectionHeight = h
+                    selector.selectionX = Math.min(selector.startPos.x, mouse.x);
+                    selector.selectionY = Math.min(selector.startPos.y, mouse.y);
+                    selector.selectionWidth = Math.abs(mouse.x - selector.startPos.x);
+                    selector.selectionHeight = Math.abs(mouse.y - selector.startPos.y);
                 }
             }
-
             onReleased: root.executeAction()
         }
+
     }
 
-    // --- 4. Subtle Control Bar (Like macOS) ---
+    // Floating switcher at the bottom
     Rectangle {
         id: controlBar
-        z: 10 // Above the mouse area
-        width: 200
-        height: 44
-        radius: 22 // Pill shape
-        color: "#AA11111b" // Semi-transparent dark
-        border.color: "#33ffffff"
+
+        z: 10
+        width: 300
+        height: 50
+        radius: height / 2
+        color: Qt.rgba(0.15, 0.15, 0.15, 0.9)
+        border.color: Qt.rgba(1, 1, 1, 0.15)
         border.width: 1
+        layer.enabled: true
 
         anchors {
             bottom: parent.bottom
@@ -192,70 +212,121 @@ PanelWindow {
             bottomMargin: 60
         }
 
-        Row {
-            anchors.centerIn: parent
-            spacing: 8
+        Rectangle {
+            id: highlight
 
-            // OCR Button (Default)
-            Rectangle {
-                width: 90
-                height: 36
-                radius: 18
-                color: root.currentMode === "ocr" ? "#3b8eea" : "transparent" // Blue if active
+            height: parent.height - 8
+            width: (parent.width - 8) / root.modes.length
+            y: 4
+            radius: height / 2
+            color: "#3478F6"
+            x: 4 + (root.modes.indexOf(root.currentMode) * width)
 
-                Text {
-                    anchors.centerIn: parent
-                    text: "Text (OCR)"
-                    color: "white"
-                    font.bold: root.currentMode === "ocr"
-                    font.pixelSize: 13
+            Behavior on x {
+                SpringAnimation {
+                    spring: 4
+                    damping: 0.25
+                    mass: 1
                 }
 
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.currentMode = "ocr"
-                }
             }
 
-            // Separator
-            Rectangle {
-                width: 1
-                height: 16
-                color: "#44ffffff"
-                anchors.verticalCenter: parent.verticalCenter
-            }
-
-            // Lens Button
-            Rectangle {
-                width: 90
-                height: 36
-                radius: 18
-                color: root.currentMode === "lens" ? "#3b8eea" : "transparent"
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "Search"
-                    color: "white"
-                    font.bold: root.currentMode === "lens"
-                    font.pixelSize: 13
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.currentMode = "lens"
-                }
-            }
         }
+
+        Row {
+            anchors.fill: parent
+            anchors.margins: 4
+
+            Repeater {
+                model: root.modes
+
+                Item {
+                    width: (controlBar.width - 8) / root.modes.length
+                    height: controlBar.height - 8
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.currentMode = modelData
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: {
+                            const icons = {
+                                "ocr": "󰈙",
+                                "lens": "󰍉"
+                            };
+                            const labels = {
+                                "ocr": "OCR",
+                                "lens": "Google Lens"
+                            };
+                            return icons[modelData] + "  " + labels[modelData];
+                        }
+                        color: root.currentMode === modelData ? "white" : "#AAFFFFFF"
+                        font.weight: root.currentMode === modelData ? Font.Bold : Font.Medium
+                        font.pixelSize: 15
+                        font.family: "Symbols Nerd Font"
+                    }
+
+                }
+
+            }
+
+        }
+
+        layer.effect: DropShadow {
+            transparentBorder: true
+            radius: 8
+            samples: 16
+            color: "#80000000"
+        }
+
     }
 
-    // --- 5. Escape Hatch ---
+    // Shortcuts
     Shortcut {
         sequence: "Escape"
         onActivated: () => {
-            Quickshell.execDetached(["rm", root.fullScreenshotPath]);
+            Quickshell.execDetached(["rm", "-f", root.fullScreenshot, root.cropJpg, root.lensHtml]);
             Qt.quit();
         }
     }
+
+    Shortcut {
+        sequence: "Tab"
+        onActivated: {
+            const i = root.modes.indexOf(root.currentMode);
+            root.currentMode = root.modes[(i + 1) % root.modes.length];
+        }
+    }
+
+    Shortcut {
+        sequence: "t"
+        onActivated: root.currentMode = "ocr"
+    }
+
+    Shortcut {
+        sequence: "g"
+        onActivated: root.currentMode = "lens"
+    }
+
+    // --- 7. Global Mouse Tracker ---
+    Item {
+        anchors.fill: parent
+        z: 999
+
+        HoverHandler {
+            target: null
+            onPointChanged: {
+                if (!mouseArea.pressed) {
+                    selector.mouseX = point.position.x;
+                    selector.mouseY = point.position.y;
+                }
+            }
+        }
+
+    }
+
 }
