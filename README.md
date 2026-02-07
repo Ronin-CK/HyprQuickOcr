@@ -37,7 +37,7 @@ QuickSnip works on any Linux distribution. You just need the following dependenc
 ```bash
 sudo pacman -S grim imagemagick tesseract tesseract-data-eng wl-clipboard curl libnotify xdg-utils
 # Get quickshell from AUR
-yay -S quickshell-git
+yay -S quickshell
 ```
 
 ### Other Distros
