@@ -34,7 +34,7 @@ QuickSnip works on any Linux distribution. You just need the following dependenc
 * `libnotify`
 
 ### Installation (Arch)
-## AUR (maintained by @knownasnaffy)
+## AUR  (maintained by [@knownasnaffy](https://github.com/knownasnaffy)):
 ```bash
 yay -S quicksnip-git
 ```
