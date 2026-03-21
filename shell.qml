@@ -2,7 +2,6 @@ import Qt5Compat.GraphicalEffects
 import QtQuick
 import QtQuick.Controls
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 
@@ -10,7 +9,6 @@ PanelWindow {
     id: root
 
     property var targetScreen: null
-    property var monitor: null
     property var modes: ["ocr", "lens"]
     property string currentMode: "ocr"
     property string fullScreenshot: ""
@@ -18,19 +16,18 @@ PanelWindow {
     property string lensHtml: ""
 
     function executeAction() {
-        if (!root.monitor)
+        if (!root.targetScreen)
             return;
 
-        const scale = root.monitor.scale ?? 1;
-        
-        // Get monitor offset for multi-monitor setups
-        const monitorX = root.monitor.lastIpcObject?.x ?? 0;
-        const monitorY = root.monitor.lastIpcObject?.y ?? 0;
-        
-        // For grim -o (single monitor capture), use local coordinates
-        // The monitor offset is only needed if capturing all monitors
-        const x = Math.round(selector.selectionX * scale);
-        const y = Math.round(selector.selectionY * scale);
+        const scale = root.targetScreen.scale ?? 1;
+
+        // Get screen offset for multi-monitor setups
+        const screenX = root.targetScreen.lastIpcObject?.x ?? 0;
+        const screenY = root.targetScreen.lastIpcObject?.y ?? 0;
+
+        // Calculate global coordinates for multi-monitor support
+        const x = Math.round((selector.selectionX * scale) + screenX);
+        const y = Math.round((selector.selectionY * scale) + screenY);
         const w = Math.round(selector.selectionWidth * scale);
         const h = Math.round(selector.selectionHeight * scale);
         
@@ -69,8 +66,8 @@ PanelWindow {
     }
 
     function finishInit() {
-        if (!root.monitor || !root.targetScreen) {
-            console.error("Cannot init: monitor or screen is null");
+        if (!root.targetScreen) {
+            console.error("Cannot init: targetScreen is null");
             return;
         }
 
@@ -82,22 +79,16 @@ PanelWindow {
     }
 
     function tryInit() {
-        const mon = Hyprland.focusedMonitor;
-        if (!mon) {
-            return false;
-        }
-
-        root.monitor = mon;
-
-        // Find matching Quickshell screen
+        // Find the screen with the cursor position
         let found = null;
         for (const screen of Quickshell.screens) {
-            if (screen.name === mon.name) {
+            if (screen.cursorPosition) {
                 found = screen;
                 break;
             }
         }
 
+        // Fallback to first screen if cursor position is not available
         if (!found && Quickshell.screens.length > 0) {
             found = Quickshell.screens[0];
         }
@@ -146,9 +137,9 @@ PanelWindow {
 
     Process {
         id: grimProc
-        command: root.monitor ? ["grim", "-o", root.monitor.name, root.fullScreenshot] : ["true"]
+        command: root.targetScreen ? ["grim", "-o", root.targetScreen.name, root.fullScreenshot] : ["true"]
         onExited: (code) => {
-            if (code === 0 && root.monitor) {
+            if (code === 0 && root.targetScreen) {
                 root.visible = true;
             } else {
                 console.error("grim failed:", code);
@@ -164,7 +155,7 @@ PanelWindow {
         id: retryTimer
         interval: 200
         onTriggered: {
-            if (root.monitor)
+            if (root.targetScreen)
                 grimProc.running = true;
         }
     }
