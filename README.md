@@ -10,6 +10,7 @@ A highly optimized screen snipping, OCR, and routing tool built for Quickshell. 
   * Granular word highlighting and drag-to-select regions.
   * `Ctrl + Click` to select multiple, non-contiguous words.
   * `Shift + Click` to extend a selection range.
+  * **Double-click** any word to instantly trigger a **Smart Action** (search, open URL, etc).
 * **Google Lens**: Built-in support for grabbing a region and sending it to Google Lens.
 * **Quick Translation**: Instantly translate text snippets using Google Translate.
 * **Copy Modes**: Switch between standard, raw, and single-line formatting on the fly based on your paste destination.
