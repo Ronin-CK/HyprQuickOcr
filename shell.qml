@@ -50,9 +50,15 @@ ShellRoot {
                 cleanupHandled = true;
                 const sanitized = selectMode.sanitizeText(text);
                 const escaped = escapeShell(sanitized);
+                
+                // For notification: collapse whitespace, trim and truncate
+                const clean = sanitized.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+                const truncated = clean.length > 100 ? clean.substring(0, 97) + "..." : clean;
+                const escapedTrunc = escapeShell(truncated);
+
                 ocrCopyProc.command = ["sh", "-c",
                     `printf '%s' '${escaped}' | wl-copy && ` +
-                    `notify-send 'Text Copied' '${wordCount} words copied to clipboard' ; ` +
+                    `notify-send 'Copied' '${escapedTrunc}' -t 3000 ; ` +
                     `rm -f "${fullScreenshot}" "${cropJpg}"`
                 ];
                 ocrCopyProc.running = true;
