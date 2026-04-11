@@ -99,7 +99,6 @@ QuickSnip includes a companion browser extension to handle instant routing into 
 
 **Install the extension:**
 * **Firefox / Zen Browser**: [QuickSnip Sidebar](https://addons.mozilla.org/en-US/firefox/addon/quicksnip-sidebar/) 
-* **Manual**: Load the `extension/` directory as an unpacked extension in your browser.
 
 **How to use:**
 1. In `settings.json`, ensure `"Browser": { "class": "zen" }` is set.
