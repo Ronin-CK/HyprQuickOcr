@@ -1,28 +1,14 @@
 # QuickSnip
 
-A highly optimized screen snipping, OCR, and routing tool built for Quickshell. Designed for speed, flexibility, and minimal friction.
+A fast, native screen snipping, OCR, and routing tool built for Quickshell.
 
-## Key Features
+## ⚡ Features
 
-* **Instant OCR**: Fast text extraction using Tesseract.
-* **Smart Actions**: Automatically detects URLs, code blocks, or standard text and routes them to your browser, search engine, or AI sidebar.
-* **Advanced Selection**: 
-  * Granular word highlighting and drag-to-select regions.
-  * `Ctrl + Click` to select multiple, non-contiguous words.
-  * `Shift + Click` to extend a selection range.
-  * **Double-click** any word to instantly trigger a **Smart Action** (search, open URL, etc).
-* **Google Lens**: Built-in support for grabbing a region and sending it to Google Lens.
-* **Quick Translation**: Instantly translate text snippets using Google Translate.
-* **Copy Modes**: Switch between standard, raw, and single-line formatting on the fly based on your paste destination.
-  * Press `d` to toggle **Direct Copy** (skips word selection and copies entire region).
-  * Press `r` to toggle **Raw Copy** (preserves exact OCR formatting).
-  * Press `s` to toggle **Single Line** (strips newlines).
-
-
-<video src="https://github.com/user-attachments/assets/ef7d56ee-acce-4e03-ac94-194914290589" controls="controls" style="max-width: 100%;">
-  Your browser does not support the video tag.
-</video>
-  
+* **Instant OCR:** Fast text extraction via Tesseract.
+* **Smart Actions:** Auto-routes URLs/code/text. **Double-click** words to trigger.
+* **Granular Selection:** Drag regions, `Ctrl+click` to multi-select, `Shift+click` to extend.
+* **Integrations:** Native send-to Google Lens & Translate.
+* **Format Toggles:** `d` (Direct mode), `r` (Raw OCR layout), `s` (Single-line).
 
 ## Installation (Arch)
 
@@ -75,16 +61,6 @@ binds {
     Mod+Shift+T { spawn "quickshell" "-c" "QuickSnip" "-n"; }
 }
 ```
-### Labwc/LabFyre (`rc.xml`)
-```xml
-<keyboard>
- <keybind key="W-S-t">
-  <action name="Execute">
-   <command>quickshell -c QuickSnip -n</command>
-  </action>
- </keybind>
-</keyboard>
-```
 
 **Note on Scaling**: If the selection area looks shifted or wrong, it's probably Qt scaling fighting with the compositor. You can force it to 1 like this:
 
@@ -93,7 +69,7 @@ binds {
 bind = $mainMod SHIFT, T, exec, env QT_SCALE_FACTOR=1 QT_AUTO_SCREEN_SCALE_FACTOR=0 quickshell -c QuickSnip -n
 ```
 
-## QuickSnip Sidebar Extension  ![Mozilla Add-on Users](https://img.shields.io/amo/users/quicksnip-sidebar?style=flat-square&color=orange)
+## QuickSnip Sidebar Extension
 
 QuickSnip includes a companion browser extension to handle instant routing into your browser's sidebar.
 
