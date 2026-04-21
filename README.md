@@ -12,7 +12,7 @@ A fast, native screen snipping, OCR, and routing tool built for Quickshell.
 
 ## Installation (Arch)
 
-### AUR (maintained by @knownasnaffy):
+### AUR (maintained by [@knownasnaffy](https://github.com/knownasnaffy)):
 ```bash
 yay -S quicksnip-git
 ```
