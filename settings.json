@@ -23,5 +23,8 @@
   },
   "Browser": {
     "class": "zen"
+  },
+  "OCR": {
+    "language": "eng+hin"
   }
 }
