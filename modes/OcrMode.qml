@@ -5,7 +5,7 @@ QtObject {
 
     property string fullScreenshot
 
-    function getCommand(x, y, w, h, singleLine, rawMode) {
+    function getCommand(x, y, w, h, singleLine, rawMode, lang) {
         const area = w * h;
         const isSmall = area < 40000;
         const isTiny = h < 30;
@@ -42,12 +42,12 @@ QtObject {
             fi
 
             # OCR with fallback polarity
-            TEXT=$(tesseract "${tmp}.pnm" - -l eng --psm ${psm} --oem 1 2>/dev/null)
+            TEXT=$(tesseract "${tmp}.pnm" - -l ${lang} --psm ${psm} --oem 1 2>/dev/null)
 
             # If tiny amount of text, try the other way
             if [ \$(printf '%s' "\$TEXT" | tr -d '[:space:]' | wc -c) -lt 3 ]; then
                 magick "${tmp}.pnm" -negate "${tmp}.pnm"
-                TEXT2=$(tesseract "${tmp}.pnm" - -l eng --psm ${psm} --oem 1 2>/dev/null)
+                TEXT2=$(tesseract "${tmp}.pnm" - -l ${lang} --psm ${psm} --oem 1 2>/dev/null)
                 if [ \$(printf '%s' "\$TEXT2" | tr -d '[:space:]' | wc -c) -gt \$(printf '%s' "\$TEXT" | tr -d '[:space:]' | wc -c) ]; then
                     TEXT="\$TEXT2"
                 fi
