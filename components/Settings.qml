@@ -16,6 +16,7 @@ QtObject {
     readonly property int smartAiThreshold: _get("Smart", "ai_threshold", 15)
     readonly property string smartOpenIn: _get("Smart", "open_in", "sidebar")
     readonly property string browserClass: _get("Browser", "class", "zen")
+    readonly property string ocrLanguage: _get("OCR", "language", "eng")
 
     function _get(section, key, fallback) {
         if (!source || !source[section]) return fallback;
