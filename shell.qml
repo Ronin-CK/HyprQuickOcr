@@ -163,7 +163,7 @@ ShellRoot {
 
                 if (ocrDirect || ocrSingleLine || ocrRaw) {
                     visible = false;
-                    proc.command = ["sh", "-c", ocrMode.getCommand(x, y, w, h, ocrSingleLine, ocrRaw)];
+                    proc.command = ["sh", "-c", ocrMode.getCommand(x, y, w, h, ocrSingleLine, ocrRaw, settings.ocrLanguage)];
                     proc.running = true;
                 } else {
                     startOcr(x, y, w, h);
@@ -258,9 +258,9 @@ ShellRoot {
                     magick "${fullScreenshot}" ${cropParams} -colorspace Gray ${upscale} -depth 8 \
                         \\( +clone -negate -write "$tmpB" \\) "$tmpA" &&
 
-                    tesseract "$tmpA" "${outA}" -l eng --psm ${psm} --oem 1 -c preserve_interword_spaces=1 tsv 2>/dev/null &
+                    tesseract "$tmpA" "${outA}" -l ${settings.ocrLanguage} --psm ${psm} --oem 1 -c preserve_interword_spaces=1 tsv 2>/dev/null &
                     PID1=$!
-                    tesseract "$tmpB" "${outB}" -l eng --psm ${psm} --oem 1 -c preserve_interword_spaces=1 tsv 2>/dev/null &
+                    tesseract "$tmpB" "${outB}" -l ${settings.ocrLanguage} --psm ${psm} --oem 1 -c preserve_interword_spaces=1 tsv 2>/dev/null &
                     PID2=$!
                     wait $PID1 $PID2
 
