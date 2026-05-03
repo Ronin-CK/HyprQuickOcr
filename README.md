@@ -69,6 +69,19 @@ binds {
 bind = $mainMod SHIFT, T, exec, env QT_SCALE_FACTOR=1 QT_AUTO_SCREEN_SCALE_FACTOR=0 quickshell -c QuickSnip -n
 ```
 
+### Settings File (`settings.json`)
+
+You can customize QuickSnip behavior by editing `~/.config/quickshell/QuickSnip/settings.json`. For example, to enable multi-language OCR (e.g. English and Hindi):
+
+```json
+{
+  "OCR": {
+    "language": "eng+hin"
+  }
+}
+```
+**Note:** Make sure to install the required tesseract language packages for any languages you add (e.g. `tesseract-data-hin` on Arch Linux or `tesseract-ocr-hin` on Debian/Ubuntu).
+
 ## QuickSnip Sidebar Extension
 
 QuickSnip includes a companion browser extension to handle instant routing into your browser's sidebar.
